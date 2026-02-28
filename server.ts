@@ -11,6 +11,84 @@ async function startServer() {
 
   app.use(express.json());
 
+  // In-memory transactions storage
+  interface Transaction {
+    id: string;
+    transactionId: string;
+    amount: number;
+    method: string;
+    status: 'pending' | 'completed' | 'rejected';
+    userEmail: string;
+    userId: string;
+    date: string;
+    applied: boolean;
+  }
+  let transactions: Transaction[] = [];
+
+  // Submit a new transaction (User)
+  app.post("/api/transactions/submit", (req, res) => {
+    try {
+      const { transactionId, amount, method, userEmail, userId } = req.body;
+      
+      if (!transactionId || !amount || !userEmail) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
+      }
+
+      const newTx: Transaction = {
+        id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+        transactionId,
+        amount: parseFloat(amount),
+        method,
+        status: 'pending',
+        userEmail,
+        userId,
+        date: new Date().toLocaleString(),
+        applied: false
+      };
+
+      transactions.push(newTx);
+      res.json({ success: true, transaction: newTx });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to submit transaction" });
+    }
+  });
+
+  // Get all transactions (Admin)
+  app.get("/api/transactions/all", (req, res) => {
+    res.json({ success: true, transactions: [...transactions].reverse() });
+  });
+
+  // Get user transactions
+  app.get("/api/transactions/user/:email", (req, res) => {
+    const userTxs = transactions.filter(t => t.userEmail === req.params.email);
+    res.json({ success: true, transactions: [...userTxs].reverse() });
+  });
+
+  // Update transaction status (Admin)
+  app.post("/api/transactions/:id/status", (req, res) => {
+    const { status } = req.body; // 'completed' or 'rejected'
+    const txIndex = transactions.findIndex(t => t.id === req.params.id);
+    
+    if (txIndex === -1) {
+      return res.status(404).json({ success: false, message: "Transaction not found" });
+    }
+
+    transactions[txIndex].status = status;
+    res.json({ success: true, transaction: transactions[txIndex] });
+  });
+
+  // Mark transaction as applied (User)
+  app.post("/api/transactions/:id/apply", (req, res) => {
+    const txIndex = transactions.findIndex(t => t.id === req.params.id);
+    
+    if (txIndex === -1) {
+      return res.status(404).json({ success: false, message: "Transaction not found" });
+    }
+
+    transactions[txIndex].applied = true;
+    res.json({ success: true, transaction: transactions[txIndex] });
+  });
+
   // Proxy for Top Up BD API
   app.post("/api/proxy", async (req, res) => {
     try {
@@ -46,7 +124,7 @@ async function startServer() {
     }
   });
 
-  // Payment Verification Endpoint
+  // Payment Verification Endpoint (Legacy/Fallback)
   app.post("/api/verify-transaction", async (req, res) => {
     try {
       const { transactionId, amount, method } = req.body;

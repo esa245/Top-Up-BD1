@@ -21,6 +21,7 @@ import { AddFunds } from './components/AddFunds';
 import { Support } from './components/Support';
 import { Account } from './components/Account';
 import { AuthModal } from './components/AuthModal';
+import { AdminPanel } from './components/AdminPanel';
 
 // Supabase Client
 const supabaseUrl = 'https://deqbjwcgpjnlkafucbxr.supabase.co';
@@ -65,6 +66,61 @@ export default function App() {
 
   const [isRealServices, setIsRealServices] = useState(false);
   const [servicesError, setServicesError] = useState<string | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+
+  // Fetch user transactions and apply balance
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser) return;
+
+    const checkTransactions = async () => {
+      try {
+        const res = await fetch(`/api/transactions/user/${currentUser.email}`);
+        const data = await res.json();
+        
+        if (data.success && data.transactions) {
+          // Update local payment history
+          const updatedHistory = data.transactions.map((t: any) => ({
+            id: t.id,
+            method: t.method,
+            amount: t.amount,
+            transactionId: t.transactionId,
+            status: t.status,
+            createdAt: t.date
+          }));
+          setPaymentHistory(updatedHistory);
+
+          // Find completed but unapplied transactions
+          const unapplied = data.transactions.filter((t: any) => t.status === 'completed' && !t.applied);
+          
+          let currentBal = currentUser.balance;
+          for (const tx of unapplied) {
+            // 1. Update balance in Supabase
+            currentBal += tx.amount;
+            const { error: balanceError } = await supabase
+              .from('profiles')
+              .update({ balance: currentBal })
+              .eq('id', currentUser.id);
+
+            if (!balanceError) {
+              // 2. Mark as applied on server
+              await fetch(`/api/transactions/${tx.id}/apply`, { method: 'POST' });
+              
+              // 3. Update local state
+              setCurrentUser(prev => prev ? { ...prev, balance: currentBal } : null);
+              setBalance(currentBal.toString());
+              alert(`Admin approved your transaction! ৳${tx.amount} has been added to your balance.`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check transactions", err);
+      }
+    };
+
+    checkTransactions();
+    const interval = setInterval(checkTransactions, 5000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, currentUser]);
 
   // Combined Loading State - Only block UI for initial auth check
   const isLoading = isInitialAuthLoading;
@@ -457,56 +513,44 @@ export default function App() {
     
     setIsFunding(true);
     try {
-      // 1. Verify Transaction via Server
-      const verifyRes = await fetch('/api/verify-transaction', {
+      // 1. Submit Transaction to Server
+      const submitRes = await fetch('/api/transactions/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           transactionId: fundTransactionId, 
           amount: fundAmount, 
-          method: paymentMethod 
+          method: paymentMethod,
+          userEmail: currentUser.email,
+          userId: currentUser.id
         })
       });
       
-      const verifyData = await verifyRes.json();
+      const submitData = await submitRes.json();
       
-      if (verifyData.success) {
-        // 2. Update Balance in Supabase
-        const addedAmount = parseFloat(fundAmount);
-        const newBalance = currentUser.balance + addedAmount;
-        
-        const { error: balanceError } = await supabase
-          .from('profiles')
-          .update({ balance: newBalance })
-          .eq('id', (await supabase.auth.getUser()).data.user?.id);
-
-        if (balanceError) throw balanceError;
-
-        // 3. Update local state
-        setCurrentUser({ ...currentUser, balance: newBalance });
-        setBalance(newBalance.toString());
-        
+      if (submitData.success) {
+        // Add to local payment history as pending
         const newPayment: PaymentRecord = {
-          id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+          id: submitData.transaction.id,
           method: paymentMethod,
-          amount: addedAmount,
+          amount: parseFloat(fundAmount),
           transactionId: fundTransactionId,
-          status: 'completed',
+          status: 'pending',
           createdAt: new Date().toLocaleString()
         };
         setPaymentHistory(prev => [newPayment, ...prev]);
         
-        alert(`Success! ৳${addedAmount} has been added to your balance for Transaction ID: ${fundTransactionId}`);
+        alert(`Transaction Submitted! Your Transaction ID: ${fundTransactionId} is pending admin approval.`);
         setFundAmount('');
         setFundTransactionId('');
         setFundStep('amount');
         setFundError(null);
       } else {
-        setFundError("সঠিক ট্রানজেকশন আইডি দিন");
+        setFundError(submitData.message || "Failed to submit transaction");
       }
     } catch (error: any) {
       console.error("Funding Error:", error);
-      setFundError("Failed to add funds: " + error.message);
+      setFundError("Failed to submit transaction: " + error.message);
     } finally {
       setIsFunding(false);
     }
@@ -582,6 +626,10 @@ export default function App() {
     );
   }
 
+  if (showAdminPanel) {
+    return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       <Header 
@@ -590,6 +638,7 @@ export default function App() {
         userName={currentUser?.name}
         onTabChange={handleTabChange} 
         onShowAuth={() => setShowAuthModal(true)} 
+        onAdminClick={() => setShowAdminPanel(true)}
       />
 
       <main className="max-w-lg mx-auto p-4 pb-24">

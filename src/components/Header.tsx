@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TrendingUp, User } from 'lucide-react';
 import { UserData } from '../types';
 
@@ -8,15 +8,29 @@ interface HeaderProps {
   userName?: string;
   onTabChange: (tab: any) => void;
   onShowAuth: () => void;
+  onAdminClick?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isLoggedIn, balance, userName, onTabChange, onShowAuth }) => {
+export const Header: React.FC<HeaderProps> = ({ isLoggedIn, balance, userName, onTabChange, onShowAuth, onAdminClick }) => {
   const firstLetter = userName ? userName.charAt(0).toUpperCase() : 'U';
+  const [clickCount, setClickCount] = useState(0);
+
+  const handleLogoClick = () => {
+    const newCount = clickCount + 1;
+    setClickCount(newCount);
+    if (newCount >= 5) {
+      setClickCount(0);
+      if (onAdminClick) onAdminClick();
+    }
+  };
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
       <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div 
+          className="flex items-center gap-2 cursor-pointer select-none"
+          onClick={handleLogoClick}
+        >
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
             <TrendingUp className="w-5 h-5 text-white" />
           </div>
