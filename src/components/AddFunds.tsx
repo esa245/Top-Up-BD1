@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { History, ArrowLeft, Copy } from 'lucide-react';
+import { History, ArrowLeft, Copy, Info } from 'lucide-react';
 import { PaymentRecord } from '../types';
 import { paymentNumbers } from '../constants';
 
@@ -197,6 +197,31 @@ export const AddFunds: React.FC<AddFundsProps> = ({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Important Instructions */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-3xl p-6 space-y-3">
+        <h3 className="font-bold text-indigo-900 flex items-center gap-2">
+          <Info className="w-4 h-4" /> জরুরী নির্দেশনা
+        </h3>
+        <ul className="space-y-2 text-xs text-indigo-800">
+          <li className="flex items-start gap-2">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+            সর্বনিম্ন ২০ টাকা অ্যাড করতে পারবেন।
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+            টাকা পাঠানোর সময় অবশ্যই Send Money করবেন।
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+            সঠিক Transaction ID দিয়ে Verify Payment বাটনে ক্লিক করুন।
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+            টাকা অ্যাড হতে কোনো সমস্যা হলে সাপোর্ট টিকিটে যোগাযোগ করুন।
+          </li>
+        </ul>
       </div>
     </motion.div>
   );
