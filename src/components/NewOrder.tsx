@@ -358,7 +358,7 @@ export const NewOrder: React.FC<NewOrderProps> = ({
                           Verifying...
                         </>
                       ) : (
-                        'Verify Payment'
+                        'সাবমিট করো'
                       )}
                     </button>
                   </div>

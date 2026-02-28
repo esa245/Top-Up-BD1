@@ -157,7 +157,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                 disabled={!fundTransactionId || isFunding}
                 className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${paymentMethod === 'nagad' ? 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700' : 'bg-pink-600 text-white shadow-pink-200 hover:bg-pink-700'}`}
               >
-                {isFunding ? 'Checking Transaction...' : 'Verify Payment'}
+                {isFunding ? 'Checking Transaction...' : 'সাবমিট করো'}
               </button>
             </div>
           </div>
@@ -224,7 +224,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-            সঠিক মোবাইল নম্বরের শেষ ৪ ডিজিট দিয়ে Verify Payment বাটনে ক্লিক করুন।
+            সঠিক মোবাইল নম্বরের শেষ ৪ ডিজিট দিয়ে সাবমিট করো বাটনে ক্লিক করুন।
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />

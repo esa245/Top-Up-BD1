@@ -70,7 +70,7 @@ export default function App() {
 
   // Fetch user transactions and apply balance
   useEffect(() => {
-    if (!isLoggedIn || !currentUser) return;
+    if (!isLoggedIn || !currentUser || !currentUser.uuid) return;
 
     const checkTransactions = async () => {
       try {
@@ -93,23 +93,28 @@ export default function App() {
           const unapplied = data.transactions.filter((t: any) => t.status === 'completed' && !t.applied);
           
           let currentBal = currentUser.balance;
+          let balanceChanged = false;
+
           for (const tx of unapplied) {
             // 1. Update balance in Supabase
             currentBal += tx.amount;
             const { error: balanceError } = await supabase
               .from('profiles')
               .update({ balance: currentBal })
-              .eq('id', currentUser.userId);
+              .eq('id', currentUser.uuid);
 
             if (!balanceError) {
               // 2. Mark as applied on server
               await fetch(`/api/transactions/${tx.id}/apply`, { method: 'POST' });
-              
-              // 3. Update local state
-              setCurrentUser(prev => prev ? { ...prev, balance: currentBal } : null);
-              setBalance(currentBal.toString());
-              alert(`Admin approved your transaction! ৳${tx.amount} has been added to your balance.`);
+              balanceChanged = true;
             }
+          }
+
+          if (balanceChanged) {
+            // 3. Update local state once after all applications
+            setCurrentUser(prev => prev ? { ...prev, balance: currentBal } : null);
+            setBalance(currentBal.toString());
+            alert(`Admin approved your transaction(s)! Your balance has been updated to ৳${currentBal}.`);
           }
         }
       } catch (err) {
@@ -295,6 +300,7 @@ export default function App() {
 
         if (profile) {
           setCurrentUser({
+            uuid: user.id,
             userId: profile.user_id,
             email: user.email!,
             name: profile.full_name,
@@ -304,6 +310,7 @@ export default function App() {
         } else {
           // Fallback if profile still not available
           setCurrentUser({
+            uuid: user.id,
             userId: 'TUBD-TEMP',
             email: user.email!,
             name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
@@ -420,14 +427,32 @@ export default function App() {
     try {
       // 1. Check if user has enough balance
       if (currentUser.balance < charge) {
-        // If not enough balance, we can't process "Real" order automatically 
-        // unless we have a way to verify the transaction ID.
-        // For now, let's assume the transaction ID is for manual verification and we just record it.
-        alert("Insufficient balance. Your order with sender number ending in " + transactionId + " has been submitted for manual verification.");
+        // If not enough balance, we submit a transaction request for manual verification
+        const submitRes = await fetch('/api/transactions/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            transactionId: transactionId, 
+            amount: charge, 
+            method: 'bkash', // Default to bkash for order-flow payments or we could add a selector
+            userEmail: currentUser.email,
+            userId: currentUser.userId
+          })
+        });
         
-        // We still call the proxy but maybe with a flag? 
-        // Actually, the SMM panel won't process it without balance on THEIR side.
-        // So we should probably only process if balance is sufficient in our system.
+        const submitData = await submitRes.json();
+        
+        if (submitData.success) {
+          alert("OK");
+          setStep('form');
+          setLink('');
+          setQuantity('');
+          setTransactionId('');
+          setActiveTab('add-funds'); // Redirect to funds to see status
+        } else {
+          alert("Failed to submit payment request: " + (submitData.message || "Unknown error"));
+        }
+        
         setIsVerifying(false);
         return;
       }
@@ -437,7 +462,7 @@ export default function App() {
       const { error: balanceError } = await supabase
         .from('profiles')
         .update({ balance: newBalance })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+        .eq('id', currentUser.uuid);
 
       if (balanceError) throw balanceError;
 
@@ -540,7 +565,7 @@ export default function App() {
         };
         setPaymentHistory(prev => [newPayment, ...prev]);
         
-        alert(`Transaction Submitted! Your payment from number ending in: ${fundTransactionId} is pending admin approval.`);
+        alert("OK");
         setFundAmount('');
         setFundTransactionId('');
         setFundStep('amount');
