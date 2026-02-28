@@ -54,9 +54,9 @@ async function startServer() {
       // Simulate an automatic checking process with a slight delay
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Accept any transaction ID that is at least 6 characters long (more lenient)
+      // Accept any transaction ID that is provided
       // In a real production app, this would connect to bKash/Nagad merchant API
-      const isValid = transactionId && transactionId.length >= 6;
+      const isValid = transactionId && transactionId.trim().length > 0;
 
       if (isValid) {
         res.json({ success: true, message: "Transaction verified successfully!" });

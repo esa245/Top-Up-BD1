@@ -496,7 +496,7 @@ export default function App() {
         };
         setPaymentHistory(prev => [newPayment, ...prev]);
         
-        alert(`Success! ৳${addedAmount} has been added to your balance.`);
+        alert(`Success! ৳${addedAmount} has been added to your balance for Transaction ID: ${fundTransactionId}`);
         setFundAmount('');
         setFundTransactionId('');
         setFundStep('amount');

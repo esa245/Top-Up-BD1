@@ -142,7 +142,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                 <label className="text-sm font-bold text-slate-700">Transaction ID</label>
                 <input 
                   type="text"
-                  placeholder="8N7X6W5V4U"
+                  placeholder="74ZRJ6IU"
                   value={fundTransactionId}
                   onChange={(e) => onFundTransactionIdChange(e.target.value.toUpperCase())}
                   className={`w-full bg-slate-50 border ${fundError && fundStep === 'verify' ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-2xl p-4 focus:outline-none focus:ring-2 transition-all font-mono font-bold`}
