@@ -127,6 +127,13 @@ export default function App() {
         transactions.push({ id: doc.id, ...doc.data() });
       });
 
+      // Sort by date descending
+      transactions.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return dateB - dateA;
+      });
+
       // Update local payment history
       const updatedHistory = transactions.map((t: any) => ({
         id: t.id,
@@ -134,7 +141,7 @@ export default function App() {
         amount: t.amount,
         transactionId: t.transactionId,
         status: t.status,
-        createdAt: t.date
+        createdAt: new Date(t.date).toLocaleString()
       }));
       setPaymentHistory(updatedHistory);
     });
@@ -323,10 +330,16 @@ export default function App() {
             id: user.uid,
             full_name: user.displayName || user.email?.split('@')[0] || 'User',
             email: user.email,
-            balance: 0
+            balance: 0,
+            customId: Math.floor(100000 + Math.random() * 900000).toString()
           };
           await setDoc(doc(db, "profiles", user.uid), newProfile);
           profile = newProfile;
+        } else if (!profile.customId) {
+          // Add customId to existing profile
+          const customId = Math.floor(100000 + Math.random() * 900000).toString();
+          await updateDoc(doc(db, "profiles", user.uid), { customId });
+          profile.customId = customId;
         }
 
         if (profile) {
@@ -334,7 +347,8 @@ export default function App() {
             uuid: user.uid,
             email: user.email!,
             name: profile.full_name,
-            balance: profile.balance
+            balance: profile.balance,
+            customId: profile.customId
           });
           setBalance(profile.balance.toString());
         } else {
@@ -343,7 +357,8 @@ export default function App() {
             uuid: user.uid,
             email: user.email!,
             name: user.displayName || user.email?.split('@')[0] || 'User',
-            balance: 0
+            balance: 0,
+            customId: '000000'
           });
         }
         setIsLoggedIn(true);
@@ -409,7 +424,8 @@ export default function App() {
           id: user.uid,
           full_name: authName || user.email?.split('@')[0] || 'User',
           email: user.email,
-          balance: 0
+          balance: 2, // Bonus for new user
+          customId: Math.floor(100000 + Math.random() * 900000).toString()
         };
         await setDoc(doc(db, "profiles", user.uid), newProfile);
         
@@ -590,7 +606,7 @@ export default function App() {
       userEmail: currentUser.email,
       userId: currentUser.uuid,
       status: 'pending',
-      date: new Date().toLocaleString(),
+      date: new Date().toISOString(),
       applied: false
     };
 
@@ -799,6 +815,7 @@ export default function App() {
             currentUser={currentUser} 
             balance={balance} 
             orders={orders} 
+            paymentHistory={paymentHistory}
             onLogout={handleLogout} 
             onAdminClick={() => setShowAdminPanel(true)}
           />

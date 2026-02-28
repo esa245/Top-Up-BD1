@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Users, CreditCard, ArrowLeft, LogOut, CheckCircle, XCircle, ShoppingBag } from 'lucide-react';
+import { Users, CreditCard, ArrowLeft, LogOut, CheckCircle, XCircle, ShoppingBag, Search, Copy } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, onSnapshot, updateDoc, doc, query, orderBy, getDocs, where, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc, query, orderBy, getDocs, where, getDoc, runTransaction } from 'firebase/firestore';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -36,6 +36,8 @@ interface UserProfile {
   full_name: string;
   email: string;
   balance: number;
+  referredBy?: string;
+  customId?: string;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
@@ -48,6 +50,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'transactions' | 'orders' | 'users'>('transactions');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (isAdminLoggedIn) {
@@ -92,30 +95,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const handleStatusUpdate = async (id: string, status: 'completed' | 'rejected') => {
     try {
       setIsLoading(true);
-      const tx = transactions.find(t => t.id === id);
-      if (!tx) throw new Error("Transaction not found");
-
-      if (status === 'completed' && tx.status !== 'completed') {
-        // 1. Get User Profile
-        const userDocRef = doc(db, "profiles", tx.userId);
-        const userDocSnap = await getDoc(userDocRef);
-        
-        if (!userDocSnap.exists()) throw new Error("User profile not found");
-        
-        const userProfile = userDocSnap.data() as UserProfile;
-
-        // 2. Update Balance
-        const newBalance = (userProfile.balance || 0) + tx.amount;
-        await updateDoc(userDocRef, { balance: newBalance });
-      }
-
-      // 3. Update Transaction Status
-      await updateDoc(doc(db, "transactions", id), { status });
       
-      alert(`পেমেন্ট ${status === 'completed' ? 'সফল' : 'বাতিল'} করা হয়েছে!`);
-    } catch (err) {
+      await runTransaction(db, async (transaction) => {
+        const txRef = doc(db, "transactions", id);
+        const txSnap = await transaction.get(txRef);
+        
+        if (!txSnap.exists()) {
+          throw new Error("Transaction not found");
+        }
+        
+        const txData = txSnap.data();
+        
+        if (status === 'completed' && txData.status !== 'completed') {
+          const userRef = doc(db, "profiles", txData.userId);
+          const userSnap = await transaction.get(userRef);
+          
+          if (!userSnap.exists()) {
+            throw new Error("User profile not found");
+          }
+          
+          const userProfile = userSnap.data();
+          const newBalance = (userProfile.balance || 0) + txData.amount;
+          
+          transaction.update(userRef, { balance: newBalance });
+        }
+        
+        transaction.update(txRef, { status });
+      });
+
+      console.log(`Payment ${status} for ID: ${id}`);
+      alert(`Payment marked as ${status === 'completed' ? 'Accepted' : 'Rejected'}`);
+    } catch (err: any) {
       console.error("Failed to update status", err);
-      alert("পেমেন্ট আপডেট করতে সমস্যা হয়েছে: " + (err as any).message);
+      if (err.message && err.message.includes("Cloud Firestore API")) {
+        const confirmOpen = window.confirm(
+          "Cloud Firestore API is disabled or not set up.\n\n" +
+          "Click OK to open the Google Cloud Console and enable it.\n" +
+          "After enabling, wait a few minutes and try again."
+        );
+        if (confirmOpen) {
+          window.open(`https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=count-time-7e879`, '_blank');
+        }
+      } else {
+        alert("পেমেন্ট আপডেট করতে সমস্যা হয়েছে: " + (err.message || "Unknown error"));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -133,6 +156,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       alert("ভুল এডমিন ইমেইল বা পাসওয়ার্ড!");
     }
   };
+
+  // Filter logic
+  const filterData = (data: any[]) => {
+    if (!searchQuery) return data;
+    const lowerQuery = searchQuery.toLowerCase();
+    return data.filter(item => {
+      // Find user if userId exists
+      const user = item.userId ? users.find(u => u.id === item.userId) : null;
+      const customId = user?.customId || '';
+
+      return (
+        (item.userEmail && item.userEmail.toLowerCase().includes(lowerQuery)) ||
+        (item.userId && item.userId.toLowerCase().includes(lowerQuery)) ||
+        (item.id && item.id.toLowerCase().includes(lowerQuery)) ||
+        (item.transactionId && item.transactionId.toLowerCase().includes(lowerQuery)) ||
+        (item.full_name && item.full_name.toLowerCase().includes(lowerQuery)) ||
+        (customId && customId.includes(lowerQuery))
+      );
+    });
+  };
+
+  const filteredTransactions = filterData(transactions);
+  const filteredOrders = filterData(orders);
+  const filteredUsers = filterData(users);
 
   if (!isAdminLoggedIn) {
     return (
@@ -219,15 +266,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <nav className="bg-white border-b border-slate-200">
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center gap-4">
               <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <h1 className="text-xl font-bold text-slate-900">Admin Dashboard</h1>
+              <h1 className="text-xl font-bold text-slate-900 hidden sm:block">Admin Dashboard</h1>
             </div>
+            
+            {/* Search Bar */}
+            <div className="flex-1 max-w-lg mx-4 flex items-center">
+              <div className="relative w-full">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-md leading-5 bg-slate-50 placeholder-slate-500 focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Search TrxID, UserID, Email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="flex items-center gap-6">
               <div className="hidden sm:flex items-center gap-4">
                 <button 
@@ -254,7 +318,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 className="flex items-center gap-2 text-slate-500 hover:text-red-600 transition-colors"
               >
                 <LogOut className="w-5 h-5" />
-                <span className="text-sm font-medium">Logout</span>
+                <span className="text-sm font-medium hidden sm:block">Logout</span>
               </button>
             </div>
           </div>
@@ -320,7 +384,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sender Number</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User (Email & ID)</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
@@ -328,50 +392,87 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
-                  {transactions.length === 0 ? (
+                  {filteredTransactions.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No transactions found</td>
                     </tr>
                   ) : (
-                    transactions.map((tx) => (
-                      <tr key={tx.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900">{tx.transactionId}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{tx.userEmail}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">৳{tx.amount}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            tx.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                            tx.status === 'rejected' ? 'bg-red-100 text-red-800' : 
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{tx.date}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          {tx.status === 'pending' && (
-                            <div className="flex justify-end gap-2">
+                    filteredTransactions.map((tx) => {
+                      const user = users.find(u => u.id === tx.userId);
+                      const userName = user ? user.full_name : 'Unknown';
+                      const displayId = user?.customId || tx.userId;
+                      
+                      return (
+                        <tr key={tx.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900 flex items-center gap-2">
+                            {tx.transactionId}
+                            <button 
+                              onClick={() => navigator.clipboard.writeText(tx.transactionId)}
+                              className="text-slate-400 hover:text-indigo-600 transition-colors"
+                              title="Copy TrxID"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            <div className="font-bold text-slate-900">{userName}</div>
+                            <div className="font-medium text-slate-700">{tx.userEmail}</div>
+                            <div className="text-xs text-slate-400 font-mono flex items-center gap-1">
+                              {displayId}
                               <button 
-                                onClick={() => handleStatusUpdate(tx.id, 'completed')}
-                                disabled={isLoading}
-                                className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
-                                title="Accept"
+                                onClick={() => navigator.clipboard.writeText(displayId)}
+                                className="text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="Copy UserID"
                               >
-                                <CheckCircle className="w-5 h-5" />
-                              </button>
-                              <button 
-                                onClick={() => handleStatusUpdate(tx.id, 'rejected')}
-                                disabled={isLoading}
-                                className="text-rose-600 hover:text-rose-900 bg-rose-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
-                                title="Reject"
-                              >
-                                <XCircle className="w-5 h-5" />
+                                <Copy className="w-3 h-3" />
                               </button>
                             </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">৳{tx.amount}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              tx.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                              tx.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {tx.status === 'completed' ? 'Accepted' : 
+                               tx.status === 'rejected' ? 'Rejected' : 'Pending'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(tx.date).toLocaleString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {tx.status === 'pending' ? (
+                              <div className="flex justify-end gap-2">
+                                <button 
+                                  onClick={() => handleStatusUpdate(tx.id, 'completed')}
+                                  disabled={isLoading}
+                                  className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                  title="Accept"
+                                >
+                                  <CheckCircle className="w-5 h-5" />
+                                </button>
+                                <button 
+                                  onClick={() => handleStatusUpdate(tx.id, 'rejected')}
+                                  disabled={isLoading}
+                                  className="text-rose-600 hover:text-rose-900 bg-rose-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                  title="Reject"
+                                >
+                                  <XCircle className="w-5 h-5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex justify-end gap-2">
+                                <span className={`px-3 py-1 rounded-md text-xs font-bold ${
+                                  tx.status === 'completed' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                                }`}>
+                                  {tx.status === 'completed' ? 'Accepted' : 'Rejected'}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -389,7 +490,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Order ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User (Email & ID)</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Service</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Link</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Charge</th>
@@ -397,15 +498,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
-                  {orders.length === 0 ? (
+                  {filteredOrders.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No orders found</td>
                     </tr>
                   ) : (
-                    orders.map((order) => (
+                    filteredOrders.map((order) => (
                       <tr key={order.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">{order.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{order.userEmail}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                          <div className="font-medium text-slate-900">{order.userEmail}</div>
+                          <div className="text-xs text-slate-400 font-mono">ID: ...{order.id.slice(-6)}</div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{order.service}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 truncate max-w-[150px]">
                           <a href={order.link} target="_blank" rel="noopener noreferrer">{order.link}</a>
@@ -435,20 +539,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <thead className="bg-slate-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email & ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Referred By</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Balance</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-200">
-                  {users.length === 0 ? (
+                  {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-6 py-8 text-center text-slate-500">No users found</td>
+                      <td colSpan={4} className="px-6 py-8 text-center text-slate-500">No users found</td>
                     </tr>
                   ) : (
-                    users.map((user) => (
+                    filteredUsers.map((user) => (
                       <tr key={user.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">{user.full_name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.email}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                          <div className="font-medium text-slate-900">{user.email}</div>
+                          <div className="text-xs text-slate-400 font-mono">{user.id}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{user.referredBy || '-'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-emerald-600">৳{user.balance.toFixed(2)}</td>
                       </tr>
                     ))

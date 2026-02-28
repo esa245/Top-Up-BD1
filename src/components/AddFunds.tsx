@@ -238,7 +238,8 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                     payment.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
                     'bg-rose-50 text-rose-600'
                   }`}>
-                    {payment.status}
+                    {payment.status === 'completed' ? 'Accepted' : 
+                     payment.status === 'rejected' ? 'Rejected' : 'Pending'}
                   </span>
                   <p className="text-[9px] text-slate-400 mt-1">{payment.createdAt.split(',')[0]}</p>
                 </div>
