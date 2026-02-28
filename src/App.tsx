@@ -99,7 +99,7 @@ export default function App() {
             const { error: balanceError } = await supabase
               .from('profiles')
               .update({ balance: currentBal })
-              .eq('id', currentUser.id);
+              .eq('id', currentUser.userId);
 
             if (!balanceError) {
               // 2. Mark as applied on server
@@ -423,7 +423,7 @@ export default function App() {
         // If not enough balance, we can't process "Real" order automatically 
         // unless we have a way to verify the transaction ID.
         // For now, let's assume the transaction ID is for manual verification and we just record it.
-        alert("Insufficient balance. Your order with Transaction ID " + transactionId + " has been submitted for manual verification.");
+        alert("Insufficient balance. Your order with sender number ending in " + transactionId + " has been submitted for manual verification.");
         
         // We still call the proxy but maybe with a flag? 
         // Actually, the SMM panel won't process it without balance on THEIR side.
@@ -505,8 +505,8 @@ export default function App() {
       setFundError("আপনার টাকা কম ২০ টাকার নিচে হবে না");
       return;
     }
-    if (!fundTransactionId) {
-      setFundError("সঠিক ট্রানজেকশন আইডি দিন");
+    if (!fundTransactionId || fundTransactionId.length !== 4) {
+      setFundError("সঠিক মোবাইল নম্বরের শেষ ৪ ডিজিট দিন");
       return;
     }
     if (!currentUser) return;
@@ -522,7 +522,7 @@ export default function App() {
           amount: fundAmount, 
           method: paymentMethod,
           userEmail: currentUser.email,
-          userId: currentUser.id
+          userId: currentUser.userId
         })
       });
       
@@ -540,7 +540,7 @@ export default function App() {
         };
         setPaymentHistory(prev => [newPayment, ...prev]);
         
-        alert(`Transaction Submitted! Your Transaction ID: ${fundTransactionId} is pending admin approval.`);
+        alert(`Transaction Submitted! Your payment from number ending in: ${fundTransactionId} is pending admin approval.`);
         setFundAmount('');
         setFundTransactionId('');
         setFundStep('amount');
@@ -580,7 +580,7 @@ export default function App() {
             <CheckCircle2 className="w-10 h-10 text-emerald-600" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Order Received!</h2>
-          <p className="text-slate-600 mb-8">Your transaction ID <span className="font-mono font-bold">{transactionId}</span> has been verified.</p>
+          <p className="text-slate-600 mb-8">Your payment from number ending in <span className="font-mono font-bold">{transactionId}</span> has been verified.</p>
           <button onClick={() => { setStep('form'); setIsSuccess(false); setLink(''); setQuantity(''); setTransactionId(''); }} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-semibold hover:bg-indigo-700 transition-colors">
             Back to Dashboard
           </button>

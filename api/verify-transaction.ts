@@ -17,12 +17,12 @@ export default async function handler(req: any, res: any) {
   try {
     const { transactionId, amount, method } = req.body;
 
-    const isValid = transactionId && transactionId.length >= 8 && transactionId.length <= 16 && /^[A-Z0-9]+$/i.test(transactionId);
+    const isValid = transactionId && transactionId.length === 4 && /^\d{4}$/.test(transactionId);
 
     if (isValid) {
       res.status(200).json({ success: true, message: "Transaction verified successfully!" });
     } else {
-      res.status(400).json({ success: false, message: "Invalid Transaction ID format. Must be 8-16 alphanumeric characters." });
+      res.status(400).json({ success: false, message: "Invalid sender number format. Must be 4 digits." });
     }
   } catch (error) {
     res.status(500).json({ success: false, message: "Verification failed." });

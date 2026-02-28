@@ -139,12 +139,13 @@ export const AddFunds: React.FC<AddFundsProps> = ({
 
             <div className="space-y-4 pt-6 border-t border-slate-100">
               <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">Transaction ID</label>
+                <label className="text-sm font-bold text-slate-700">যে নম্বর থেকে টাকা পাঠিয়েছেন তার শেষ ৪ ডিজিট</label>
                 <input 
                   type="text"
-                  placeholder="74ZRJ6IU"
+                  placeholder="e.g. 1234"
+                  maxLength={4}
                   value={fundTransactionId}
-                  onChange={(e) => onFundTransactionIdChange(e.target.value.toUpperCase())}
+                  onChange={(e) => onFundTransactionIdChange(e.target.value.replace(/\D/g, ''))}
                   className={`w-full bg-slate-50 border ${fundError && fundStep === 'verify' ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-2xl p-4 focus:outline-none focus:ring-2 transition-all font-mono font-bold`}
                 />
                 {fundError && fundStep === 'verify' && (
@@ -223,7 +224,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-            সঠিক Transaction ID দিয়ে Verify Payment বাটনে ক্লিক করুন।
+            সঠিক মোবাইল নম্বরের শেষ ৪ ডিজিট দিয়ে Verify Payment বাটনে ক্লিক করুন।
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />

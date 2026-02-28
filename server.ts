@@ -139,7 +139,7 @@ async function startServer() {
       if (isValid) {
         res.json({ success: true, message: "Transaction verified successfully!" });
       } else {
-        res.status(400).json({ success: false, message: "Invalid Transaction ID format." });
+        res.status(400).json({ success: false, message: "Invalid Sender Number format." });
       }
     } catch (error) {
       res.status(500).json({ success: false, message: "Verification failed." });

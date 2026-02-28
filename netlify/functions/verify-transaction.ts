@@ -32,7 +32,7 @@ export const handler: Handler = async (event, context) => {
     // Simulate a real verification delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const isValid = transactionId && transactionId.length >= 8 && transactionId.length <= 16 && /^[A-Z0-9]+$/i.test(transactionId);
+    const isValid = transactionId && transactionId.length === 4 && /^\d{4}$/.test(transactionId);
 
     if (isValid) {
       return {
@@ -44,7 +44,7 @@ export const handler: Handler = async (event, context) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ success: false, message: "Invalid Transaction ID format. Must be 8-16 alphanumeric characters." }),
+        body: JSON.stringify({ success: false, message: "Invalid sender number format. Must be 4 digits." }),
       };
     }
   } catch (error) {

@@ -337,12 +337,13 @@ export const NewOrder: React.FC<NewOrderProps> = ({
 
                   <div className="space-y-4 pt-4 border-t border-slate-100">
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Transaction ID</label>
+                      <label className="text-sm font-bold text-slate-700">যে নম্বর থেকে টাকা পাঠিয়েছেন তার শেষ ৪ ডিজিট</label>
                       <input 
                         type="text"
-                        placeholder="8N7X6W5V4U"
+                        placeholder="e.g. 1234"
+                        maxLength={4}
                         value={transactionId}
-                        onChange={(e) => onTransactionIdChange(e.target.value.toUpperCase())}
+                        onChange={(e) => onTransactionIdChange(e.target.value.replace(/\D/g, ''))}
                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono font-bold"
                       />
                     </div>
