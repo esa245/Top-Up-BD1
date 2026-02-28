@@ -50,7 +50,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
           className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'nagad' ? 'border-orange-500 bg-orange-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}
         >
           <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center p-2">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Nagad_Logo.svg/1200px-Nagad_Logo.svg.png" alt="Nagad" className="w-full object-contain" />
+            <img src="https://res.cloudinary.com/dlklqihg6/image/upload/v1772267091/cats3nrgrcjggahbhtw3.jpg" alt="Nagad" className="w-full object-contain" />
           </div>
           <span className={`text-xs font-bold ${paymentMethod === 'nagad' ? 'text-orange-600' : 'text-slate-500'}`}>Nagad</span>
         </button>
@@ -62,7 +62,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
           className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'bkash' ? 'border-pink-500 bg-pink-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}
         >
           <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center p-2">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/BKash_Logo.svg/1200px-BKash_Logo.svg.png" alt="Bkash" className="w-full object-contain" />
+            <img src="https://res.cloudinary.com/dlklqihg6/image/upload/v1772267145/frar0o02q4x5me9o5zhy.webp" alt="Bkash" className="w-full object-contain" />
           </div>
           <span className={`text-xs font-bold ${paymentMethod === 'bkash' ? 'text-pink-600' : 'text-slate-500'}`}>Bkash</span>
         </button>
@@ -80,7 +80,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                 onChange={(e) => onFundAmountChange(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-lg"
               />
-              <p className="text-[10px] text-slate-400 font-medium">Note: ৳12 surcharge will be added to your payment.</p>
+              <p className="text-[10px] text-slate-400 font-medium">Note: ৳7 surcharge will be added to your payment.</p>
             </div>
             <button 
               onClick={() => {
@@ -126,7 +126,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${paymentMethod === 'nagad' ? 'bg-orange-100 text-orange-600' : 'bg-pink-100 text-pink-600'}`}>3</div>
                 <div className="flex-1">
                   <p className="text-sm text-slate-600 leading-relaxed">টাকার পরিমাণ (Surcharge সহ):</p>
-                  <p className="text-3xl font-black text-slate-900 mt-1">৳ {parseFloat(fundAmount) + 12} BDT</p>
+                  <p className="text-3xl font-black text-slate-900 mt-1">৳ {parseFloat(fundAmount) + 7} BDT</p>
                   <p className="text-[10px] text-slate-400 mt-1">আপনার ব্যালেন্সে ৳{fundAmount} যোগ হবে।</p>
                 </div>
               </div>
@@ -173,7 +173,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center p-2 ${payment.method === 'nagad' ? 'bg-orange-50' : 'bg-pink-50'}`}>
                     <img 
-                      src={payment.method === 'nagad' ? "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Nagad_Logo.svg/1200px-Nagad_Logo.svg.png" : "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/BKash_Logo.svg/1200px-BKash_Logo.svg.png"} 
+                      src={payment.method === 'nagad' ? "https://res.cloudinary.com/dlklqihg6/image/upload/v1772267091/cats3nrgrcjggahbhtw3.jpg" : "https://res.cloudinary.com/dlklqihg6/image/upload/v1772267145/frar0o02q4x5me9o5zhy.webp"} 
                       alt={payment.method} 
                       className="w-full object-contain" 
                     />

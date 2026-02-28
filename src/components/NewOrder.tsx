@@ -286,7 +286,7 @@ export const NewOrder: React.FC<NewOrderProps> = ({
                 {/* Nagad Header */}
                 <div className="bg-slate-50 p-6 flex flex-col items-center border-b border-slate-100">
                   <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4 p-2">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Nagad_Logo.svg/1200px-Nagad_Logo.svg.png" alt="Nagad" className="w-full object-contain" />
+                    <img src="https://res.cloudinary.com/dlklqihg6/image/upload/v1772267091/cats3nrgrcjggahbhtw3.jpg" alt="Nagad" className="w-full object-contain" />
                   </div>
                   <h2 className="text-xl font-bold text-slate-800">Top Up BD Payment</h2>
                   <div className="mt-4 text-3xl font-black text-indigo-600">

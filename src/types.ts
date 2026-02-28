@@ -1,6 +1,7 @@
 import React from 'react';
 
 export interface ApiService {
+  id?: string | number;
   service: number;
   name: string;
   type: string;
