@@ -4,7 +4,7 @@ import { X, TrendingUp, Mail, Lock, EyeOff, Eye, LogOut, UserPlus, User } from '
 
 interface AuthModalProps {
   show: boolean;
-  mode: 'login' | 'signup';
+  mode: 'login' | 'signup' | 'forgot-password';
   email: string;
   password: string;
   name: string;
@@ -12,7 +12,7 @@ interface AuthModalProps {
   isLoading: boolean;
   isClosable?: boolean;
   onClose: () => void;
-  onModeChange: (mode: 'login' | 'signup') => void;
+  onModeChange: (mode: 'login' | 'signup' | 'forgot-password') => void;
   onEmailChange: (val: string) => void;
   onPasswordChange: (val: string) => void;
   onNameChange: (val: string) => void;
@@ -61,7 +61,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             )}
 
-            {mode === 'login' ? (
+            {mode === 'login' && (
               <div className="p-8">
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-200 rotate-3">
@@ -88,7 +88,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-slate-700 ml-1">Password</label>
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-sm font-bold text-slate-700">Password</label>
+                      <button 
+                        type="button"
+                        onClick={() => onModeChange('forgot-password')}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                       <input 
@@ -132,7 +141,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </p>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {mode === 'signup' && (
               <div className="p-8">
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
@@ -216,6 +227,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       Login Here
                     </button>
                   </p>
+                </div>
+              </div>
+            )}
+
+            {mode === 'forgot-password' && (
+              <div className="p-8">
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <Lock className="w-8 h-8 text-indigo-600" />
+                  </div>
+                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">Reset Password</h2>
+                  <p className="text-slate-500 mt-2 font-medium">Enter your email to receive recovery instructions.</p>
+                </div>
+
+                <form onSubmit={onSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 ml-1">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                      <input 
+                        type="email"
+                        required
+                        placeholder="name@example.com"
+                        value={email}
+                        onChange={(e) => onEmailChange(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all mt-4 flex items-center justify-center gap-2 disabled:opacity-70"
+                  >
+                    {isLoading ? <TrendingUp className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
+                    {isLoading ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </form>
+
+                <div className="mt-8 text-center">
+                  <button 
+                    type="button"
+                    onClick={() => onModeChange('login')}
+                    className="text-slate-500 font-bold hover:text-slate-700 flex items-center justify-center mx-auto gap-2"
+                  >
+                    <LogOut className="w-4 h-4 rotate-180" />
+                    Back to Login
+                  </button>
                 </div>
               </div>
             )}

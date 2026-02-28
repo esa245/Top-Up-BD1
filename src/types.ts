@@ -52,7 +52,6 @@ export interface PaymentRecord {
 
 export interface UserData {
   uuid: string;
-  userId: string;
   email: string;
   name: string;
   balance: number;

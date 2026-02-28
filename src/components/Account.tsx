@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { CreditCard, Settings, LogOut, ChevronDown, User } from 'lucide-react';
+import { CreditCard, Settings, LogOut, ChevronDown, User, ShieldCheck } from 'lucide-react';
 import { UserData, Order } from '../types';
 
 interface AccountProps {
@@ -8,9 +8,10 @@ interface AccountProps {
   balance: string;
   orders: Order[];
   onLogout: () => void;
+  onAdminClick: () => void;
 }
 
-export const Account: React.FC<AccountProps> = ({ currentUser, balance, orders, onLogout }) => {
+export const Account: React.FC<AccountProps> = ({ currentUser, balance, orders, onLogout, onAdminClick }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -28,7 +29,6 @@ export const Account: React.FC<AccountProps> = ({ currentUser, balance, orders, 
           <div>
             <h3 className="text-xl font-bold text-slate-900">{currentUser?.name || 'User'}</h3>
             <p className="text-slate-500 text-sm">{currentUser?.email}</p>
-            <p className="text-slate-400 text-sm font-mono font-bold mt-1">ID: {currentUser?.userId}</p>
             <p className="text-slate-400 text-[10px] mt-1">Member since Feb 2026</p>
           </div>
         </div>
@@ -46,6 +46,19 @@ export const Account: React.FC<AccountProps> = ({ currentUser, balance, orders, 
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+        <button 
+          onClick={onAdminClick}
+          className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <span className="font-bold text-slate-700">Admin Panel</span>
+          </div>
+          <ChevronDown className="w-5 h-5 text-slate-300 -rotate-90" />
+        </button>
+
         <button className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">

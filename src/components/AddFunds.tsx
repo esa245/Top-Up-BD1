@@ -84,92 +84,120 @@ export const AddFunds: React.FC<AddFundsProps> = ({
 
       <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-6 shadow-sm">
         {fundStep === 'amount' ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Enter Amount (BDT)</label>
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${paymentMethod === 'nagad' ? 'bg-orange-100 text-orange-600' : 'bg-pink-100 text-pink-600'}`}>1</div>
+              <p className="text-sm font-bold text-slate-700">টাকার পরিমাণ দিন</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">টাকার পরিমাণ (BDT)</label>
               <input 
                 type="number"
-                placeholder="Min: 20 BDT"
+                placeholder="কত টাকা অ্যাড করতে চান?"
                 value={fundAmount}
                 onChange={(e) => onFundAmountChange(e.target.value)}
-                className={`w-full bg-slate-50 border ${fundError && fundStep === 'amount' ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-2xl p-4 focus:outline-none focus:ring-2 transition-all font-bold text-lg`}
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-lg"
               />
-              {fundError && fundStep === 'amount' && (
-                <p className="text-sm text-rose-500 font-medium mt-1">{fundError}</p>
-              )}
-              <p className="text-[10px] text-slate-400 font-medium">Note: ৳7 surcharge will be added to your payment.</p>
+              <p className="text-[10px] text-slate-400 ml-1">সর্বনিম্ন ২০ টাকা</p>
             </div>
+
             <button 
               onClick={() => {
-                if (parseFloat(fundAmount) >= 20) onSetFundStep('verify');
-                else onAddFunds(); // This will trigger the error in App.tsx
+                if (!fundAmount) {
+                  alert("দয়া করে টাকার পরিমাণ দিন");
+                  return;
+                }
+                if (parseFloat(fundAmount) < 20) {
+                  alert("সর্বনিম্ন ২০ টাকা অ্যাড করতে পারবেন");
+                  return;
+                }
+                onSetFundStep('verify');
               }}
-              disabled={!fundAmount}
-              className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all disabled:opacity-50 ${paymentMethod === 'nagad' ? 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700' : 'bg-pink-600 text-white shadow-pink-200 hover:bg-pink-700'}`}
+              className={`w-full py-4 rounded-2xl font-bold text-xl shadow-lg transition-all flex items-center justify-center gap-2 ${paymentMethod === 'nagad' ? 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700' : 'bg-pink-600 text-white shadow-pink-200 hover:bg-pink-700'}`}
             >
-              Next Step
+              পরবর্তী ধাপ
             </button>
           </div>
         ) : (
           <div className="space-y-6">
             <button 
               onClick={() => onSetFundStep('amount')}
-              className="flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-colors text-sm font-medium"
+              className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" /> Change Amount
+              <ArrowLeft className="w-3 h-3" /> পরিমাণ পরিবর্তন করুন
             </button>
-            
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${paymentMethod === 'nagad' ? 'bg-orange-100 text-orange-600' : 'bg-pink-100 text-pink-600'}`}>1</div>
-                <p className="text-sm text-slate-600 leading-relaxed">আপনার <span className="font-bold text-slate-900 uppercase">{paymentMethod}</span> অ্যাপে যান এবং <span className="font-bold text-slate-900">Send Money</span> করুন।</p>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${paymentMethod === 'nagad' ? 'bg-orange-100 text-orange-600' : 'bg-pink-100 text-pink-600'}`}>2</div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-sm text-slate-600">এই নম্বরে টাকা পাঠানঃ</p>
-                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
-                    <span className="font-mono font-bold text-slate-900">{paymentNumbers[paymentMethod]}</span>
-                    <button 
-                      onClick={() => onCopy(paymentNumbers[paymentMethod])}
-                      className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg transition-colors ${paymentMethod === 'nagad' ? 'text-orange-600 bg-orange-50 hover:bg-orange-100' : 'text-pink-600 bg-pink-50 hover:bg-pink-100'}`}
-                    >
-                      <Copy className="w-3 h-3" /> কপি
-                    </button>
-                  </div>
+
+            {/* Step 1: Payment Info */}
+            <div className="bg-slate-50 rounded-2xl p-5 space-y-4 border border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${paymentMethod === 'nagad' ? 'bg-orange-100 text-orange-600' : 'bg-pink-100 text-pink-600'}`}>2</div>
+                  <p className="text-sm font-bold text-slate-700">এই নম্বরে Send Money করুন</p>
                 </div>
+                <button 
+                  onClick={() => onCopy(paymentNumbers[paymentMethod])}
+                  className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors ${paymentMethod === 'nagad' ? 'text-orange-600 bg-orange-100 hover:bg-orange-200' : 'text-pink-600 bg-pink-100 hover:bg-pink-200'}`}
+                >
+                  <Copy className="w-3.5 h-3.5" /> কপি নম্বর
+                </button>
               </div>
-              <div className="flex items-start gap-4">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${paymentMethod === 'nagad' ? 'bg-orange-100 text-orange-600' : 'bg-pink-100 text-pink-600'}`}>3</div>
-                <div className="flex-1">
-                  <p className="text-sm text-slate-600 leading-relaxed">টাকার পরিমাণ (Surcharge সহ):</p>
-                  <p className="text-3xl font-black text-slate-900 mt-1">৳ {parseFloat(fundAmount) + 7} BDT</p>
-                  <p className="text-[10px] text-slate-400 mt-1">আপনার ব্যালেন্সে ৳{fundAmount} যোগ হবে।</p>
+              
+              <div className="text-center py-2">
+                <p className="text-3xl font-black text-slate-900 tracking-wider font-mono">
+                  {paymentNumbers[paymentMethod]}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-widest">Personal Number</p>
+                <div className="mt-4 p-3 bg-white rounded-xl border border-slate-100">
+                  <p className="text-xs font-bold text-slate-500">
+                    পরিমাণ: <span className="text-slate-900">৳{parseFloat(fundAmount) === 20 ? '27.00' : parseFloat(fundAmount).toFixed(2)}</span>
+                    {parseFloat(fundAmount) === 20 && <span className="text-rose-500 ml-1">(২০ টাকার জন্য ২৭ টাকা সেন্ড করুন)</span>}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 pt-6 border-t border-slate-100">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">যে নম্বর থেকে টাকা পাঠিয়েছেন তার শেষ ৪ ডিজিট</label>
+            {/* Step 2: Inputs */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${paymentMethod === 'nagad' ? 'bg-orange-100 text-orange-600' : 'bg-pink-100 text-pink-600'}`}>3</div>
+                <p className="text-sm font-bold text-slate-700">পেমেন্টের তথ্য দিন</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-500 uppercase ml-1">Transaction ID</label>
                 <input 
                   type="text"
-                  placeholder="e.g. 1234"
-                  maxLength={4}
+                  placeholder="TrxID (যেমন: 8N7...)"
                   value={fundTransactionId}
-                  onChange={(e) => onFundTransactionIdChange(e.target.value.replace(/\D/g, ''))}
-                  className={`w-full bg-slate-50 border ${fundError && fundStep === 'verify' ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-2xl p-4 focus:outline-none focus:ring-2 transition-all font-mono font-bold`}
+                  onChange={(e) => onFundTransactionIdChange(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono font-bold text-lg"
                 />
-                {fundError && fundStep === 'verify' && (
-                  <p className="text-sm text-rose-500 font-medium mt-1">{fundError}</p>
-                )}
               </div>
+
+              {fundError && (
+                <p className="text-sm text-rose-500 font-medium text-center bg-rose-50 py-2 rounded-xl border border-rose-100">{fundError}</p>
+              )}
+
               <button 
-                onClick={onAddFunds}
-                disabled={!fundTransactionId || isFunding}
-                className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${paymentMethod === 'nagad' ? 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700' : 'bg-pink-600 text-white shadow-pink-200 hover:bg-pink-700'}`}
+                onClick={() => {
+                  if (!fundTransactionId || fundTransactionId.length < 4) {
+                    alert("সঠিক Transaction ID দিন");
+                    return;
+                  }
+                  onAddFunds();
+                }}
+                disabled={isFunding}
+                className={`w-full py-4 rounded-2xl font-bold text-xl shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2 ${paymentMethod === 'nagad' ? 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700' : 'bg-pink-600 text-white shadow-pink-200 hover:bg-pink-700'}`}
               >
-                {isFunding ? 'Checking Transaction...' : 'সাবমিট করো'}
+                {isFunding ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    সাবমিট হচ্ছে...
+                  </>
+                ) : (
+                  'সাবমিট করো'
+                )}
               </button>
             </div>
           </div>
@@ -236,7 +264,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
-            সঠিক মোবাইল নম্বরের শেষ ৪ ডিজিট দিয়ে সাবমিট করো বাটনে ক্লিক করুন।
+            সঠিক Transaction ID দিয়ে সাবমিট করো বাটনে ক্লিক করুন।
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-1 w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />

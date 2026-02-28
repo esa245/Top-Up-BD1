@@ -6,9 +6,29 @@ import {
   Zap 
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { createClient } from '@supabase/supabase-js';
-import { db } from './firebase';
-import { collection, query, where, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  updateDoc, 
+  doc, 
+  addDoc, 
+  getDoc, 
+  setDoc,
+  getDocs,
+  orderBy,
+  limit
+} from 'firebase/firestore';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut, 
+  updateProfile,
+  sendPasswordResetEmail
+} from 'firebase/auth';
 
 // Types & Constants
 import { Category, Service, Order, PaymentRecord, UserData, ApiService } from './types';
@@ -25,16 +45,11 @@ import { Account } from './components/Account';
 import { AuthModal } from './components/AuthModal';
 import { AdminPanel } from './components/AdminPanel';
 
-// Supabase Client
-const supabaseUrl = 'https://deqbjwcgpjnlkafucbxr.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlcWJqd2NncGpubGthZnVjYnhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMjUwMTMsImV4cCI6MjA4NzcwMTAxM30.zNQpwRS3vTkLuvURxWELB4bHynrP7OajfG69QO6B1ZM';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 export default function App() {
   // Auth State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
@@ -74,6 +89,33 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn || !currentUser || !currentUser.uuid) return;
 
+    // Fetch Orders from Firestore
+    const ordersQuery = query(
+      collection(db, "orders"),
+      where("userId", "==", currentUser.uuid),
+      orderBy("timestamp", "desc"),
+      limit(50)
+    );
+
+    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+      const fetchedOrders: Order[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedOrders.push({
+          id: data.id,
+          category: data.category,
+          service: data.service,
+          link: data.link,
+          quantity: data.quantity,
+          charge: data.charge,
+          transactionId: data.transactionId,
+          status: data.status,
+          createdAt: data.createdAt
+        });
+      });
+      setOrders(fetchedOrders);
+    });
+
     const q = query(
       collection(db, "transactions"), 
       where("userEmail", "==", currentUser.email)
@@ -95,43 +137,26 @@ export default function App() {
         createdAt: t.date
       }));
       setPaymentHistory(updatedHistory);
+    });
 
-      // Find completed but unapplied transactions
-      const unapplied = transactions.filter((t: any) => t.status === 'completed' && !t.applied);
-      
-      if (unapplied.length > 0) {
-        let currentBal = currentUser.balance;
-        let balanceChanged = false;
-
-        for (const tx of unapplied) {
-          // 1. Update balance in Supabase
-          currentBal += tx.amount;
-          const { error: balanceError } = await supabase
-            .from('profiles')
-            .update({ balance: currentBal })
-            .eq('id', currentUser.uuid);
-
-          if (!balanceError) {
-            // 2. Mark as applied in Firebase
-            try {
-              await updateDoc(doc(db, "transactions", tx.id), { applied: true });
-              balanceChanged = true;
-            } catch (err) {
-              console.error("Error marking as applied in Firebase:", err);
-            }
-          }
-        }
-
-        if (balanceChanged) {
-          // 3. Update local state
-          setCurrentUser(prev => prev ? { ...prev, balance: currentBal } : null);
-          setBalance(currentBal.toString());
-          alert(`Admin approved your transaction(s)! Your balance has been updated to ৳${currentBal}.`);
-        }
+    // Real-time Profile Listener
+    const unsubscribeProfile = onSnapshot(doc(db, "profiles", currentUser.uuid), (doc) => {
+      if (doc.exists()) {
+        const profile = doc.data();
+        setCurrentUser(prev => prev ? {
+          ...prev,
+          name: profile.full_name,
+          balance: profile.balance
+        } : null);
+        setBalance(profile.balance.toString());
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeOrders();
+      unsubscribeProfile();
+    };
   }, [isLoggedIn, currentUser]);
 
   // Combined Loading State - Only block UI for initial auth check
@@ -290,33 +315,23 @@ export default function App() {
 
     const fetchAndSetProfile = async (user: any) => {
       try {
-        let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        
-        if (error && error.code !== 'PGRST116') {
-          console.error("Error fetching profile:", error);
-        }
+        const profileDoc = await getDoc(doc(db, "profiles", user.uid));
+        let profile = profileDoc.exists() ? profileDoc.data() : null;
 
         if (!profile) {
-          const randomId = Math.floor(1000 + Math.random() * 9000);
-          const { data: newProfile, error: insertError } = await supabase.from('profiles').insert([{ 
-            id: user.id,
-            user_id: `TUBD-${randomId}`,
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          const newProfile = { 
+            id: user.uid,
+            full_name: user.displayName || user.email?.split('@')[0] || 'User',
             email: user.email,
             balance: 0
-          }]).select().single();
-          
-          if (insertError) {
-            console.error("Error creating profile:", insertError);
-          } else {
-            profile = newProfile;
-          }
+          };
+          await setDoc(doc(db, "profiles", user.uid), newProfile);
+          profile = newProfile;
         }
 
         if (profile) {
           setCurrentUser({
-            uuid: user.id,
-            userId: profile.user_id,
+            uuid: user.uid,
             email: user.email!,
             name: profile.full_name,
             balance: profile.balance
@@ -325,10 +340,9 @@ export default function App() {
         } else {
           // Fallback if profile still not available
           setCurrentUser({
-            uuid: user.id,
-            userId: 'TUBD-TEMP',
+            uuid: user.uid,
             email: user.email!,
-            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+            name: user.displayName || user.email?.split('@')[0] || 'User',
             balance: 0
           });
         }
@@ -340,13 +354,13 @@ export default function App() {
 
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
+        const user = auth.currentUser;
+        if (user) {
           // Immediately show the app if session exists
           setIsLoggedIn(true);
           setIsInitialAuthLoading(false);
           // Fetch profile in background
-          fetchAndSetProfile(session.user);
+          fetchAndSetProfile(user);
         } else {
           setIsInitialAuthLoading(false);
         }
@@ -358,15 +372,13 @@ export default function App() {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setIsLoggedIn(true);
-          await fetchAndSetProfile(session.user);
-          setShowAuthModal(false);
-          setIsInitialAuthLoading(false);
-        }
-      } else if (event === 'SIGNED_OUT') {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setIsLoggedIn(true);
+        await fetchAndSetProfile(user);
+        setShowAuthModal(false);
+        setIsInitialAuthLoading(false);
+      } else {
         setIsLoggedIn(false);
         setCurrentUser(null);
         setBalance('0.00');
@@ -375,7 +387,7 @@ export default function App() {
 
     return () => {
       clearTimeout(globalTimeout);
-      subscription.unsubscribe();
+      unsubscribe();
       window.removeEventListener('switchTab', handleSwitchTab);
     };
   }, []);
@@ -386,32 +398,63 @@ export default function App() {
     setIsAuthLoading(true);
     try {
       if (authMode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({
-          email: authEmail,
-          password: authPassword,
-          options: { data: { full_name: authName } }
-        });
-        if (error) throw error;
-        if (data.user && !data.session) {
-          alert("Account created! Please login.");
-          setAuthMode('login');
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
-        if (error) throw error;
+        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        const user = userCredential.user;
+        
+        // Update profile with name
+        await updateProfile(user, { displayName: authName });
+        
+        // Create profile in Firestore
+        const newProfile = { 
+          id: user.uid,
+          full_name: authName || user.email?.split('@')[0] || 'User',
+          email: user.email,
+          balance: 0
+        };
+        await setDoc(doc(db, "profiles", user.uid), newProfile);
+        
+        alert("Account created successfully!");
         setShowAuthModal(false);
+      } else if (authMode === 'login') {
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
+        setShowAuthModal(false);
+      } else if (authMode === 'forgot-password') {
+        await sendPasswordResetEmail(auth, authEmail);
+        alert("Password reset email sent! Check your inbox.");
+        setAuthMode('login');
       }
     } catch (error: any) {
-      alert(error.message);
+      console.error("Auth error:", error);
+      let errorMessage = "লগইন করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।";
+      
+      if (error.code === 'auth/invalid-credential') {
+        errorMessage = "ভুল ইমেইল বা পাসওয়ার্ড! দয়া করে সঠিক তথ্য দিন।";
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "এই ইমেইলটি দিয়ে ইতিমধ্যে অ্যাকাউন্ট খোলা হয়েছে। লগইন করার চেষ্টা করুন।";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "পাসওয়ার্ডটি অন্তত ৬ অক্ষরের হতে হবে।";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "সঠিক ইমেইল এড্রেস দিন।";
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = "এই ইমেইল দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি।";
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = "ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।";
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsAuthLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsLoggedIn(false);
-    setCurrentUser(null);
+    try {
+      await signOut(auth);
+      setIsLoggedIn(false);
+      setCurrentUser(null);
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
   };
 
   const handleTabChange = (tab: any) => {
@@ -426,7 +469,7 @@ export default function App() {
     if (selectedService && quantity) {
       const qty = parseInt(quantity) || 0;
       const calculatedCharge = (qty / 1000) * selectedService.ratePer1000;
-      setCharge(calculatedCharge + 5);
+      setCharge(calculatedCharge);
     } else {
       setCharge(0);
     }
@@ -444,14 +487,14 @@ export default function App() {
         return;
       }
 
-      // 2. Deduct Balance from Supabase
+      // 2. Deduct Balance from Firestore
       const newBalance = currentUser.balance - charge;
-      const { error: balanceError } = await supabase
-        .from('profiles')
-        .update({ balance: newBalance })
-        .eq('id', currentUser.uuid);
-
-      if (balanceError) throw balanceError;
+      try {
+        await updateDoc(doc(db, "profiles", currentUser.uuid), { balance: newBalance });
+      } catch (err) {
+        console.error("Error deducting balance:", err);
+        throw new Error("Failed to deduct balance.");
+      }
 
       // 3. Place Order via Proxy
       const orderRes = await fetch('/api/proxy', {
@@ -468,10 +511,7 @@ export default function App() {
       const orderData = await orderRes.json();
       
       if (orderData.order) {
-        // 4. Update local state
-        setCurrentUser({ ...currentUser, balance: newBalance });
-        setBalance(newBalance.toString());
-
+        // 4. Update local state and store order in Firestore
         const newOrder: Order = {
           id: orderData.order.toString(),
           category: selectedCategory?.name || '',
@@ -483,29 +523,45 @@ export default function App() {
           status: 'pending',
           createdAt: new Date().toLocaleString()
         };
+
+        try {
+          await addDoc(collection(db, "orders"), {
+            ...newOrder,
+            userEmail: currentUser.email,
+            userId: currentUser.uuid,
+            timestamp: new Date()
+          });
+        } catch (err) {
+          console.error("Error storing order in Firestore:", err);
+          // We don't throw here because the order was already placed at the provider
+        }
+
+        setCurrentUser({ ...currentUser, balance: newBalance });
+        setBalance(newBalance.toString());
         setOrders(prev => [newOrder, ...prev]);
-        alert(`Order placed successfully! Order ID: ${orderData.order}`);
-        setStep('form');
-        setLink('');
-        setQuantity('');
-        setTransactionId('');
-        setActiveTab('orders');
-      } else {
-        // Refund balance if order fails
-        await supabase
-          .from('profiles')
-          .update({ balance: currentUser.balance })
-          .eq('id', (await supabase.auth.getUser()).data.user?.id);
-        
-        alert("Order Error from Provider: " + (orderData.error || "Unknown error"));
+      alert(`অর্ডার সফলভাবে সম্পন্ন হয়েছে! অর্ডার আইডি: ${orderData.order}`);
+      setStep('form');
+      setLink('');
+      setQuantity('');
+      setTransactionId('');
+      setActiveTab('orders');
+    } else {
+      // Refund balance if order fails
+      try {
+        await updateDoc(doc(db, "profiles", currentUser.uuid), { balance: currentUser.balance });
+      } catch (err) {
+        console.error("Error refunding balance:", err);
       }
-    } catch (error: any) {
-      console.error("Verification Error:", error);
-      alert("Failed to process order: " + error.message);
-    } finally {
-      setIsVerifying(false);
+      
+      alert("অর্ডার করতে সমস্যা হয়েছে: " + (orderData.error || "Unknown error"));
     }
-  };
+  } catch (error: any) {
+    console.error("Verification Error:", error);
+    alert("অর্ডার প্রসেস করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+  } finally {
+    setIsVerifying(false);
+  }
+};
 
   const handleAddFunds = async () => {
     setFundError(null);
@@ -517,50 +573,43 @@ export default function App() {
       setFundError("আপনার টাকা কম ২০ টাকার নিচে হবে না");
       return;
     }
-    if (!fundTransactionId || fundTransactionId.length !== 4) {
-      setFundError("সঠিক মোবাইল নম্বরের শেষ ৪ ডিজিট দিন");
+    if (!fundTransactionId || fundTransactionId.length < 4) {
+      setFundError("সঠিক Transaction ID দিন");
       return;
     }
     if (!currentUser) return;
     
     setIsFunding(true);
-    try {
-      // 1. Submit Transaction to Firebase
-      const newTx = {
-        transactionId: fundTransactionId,
-        amount: parseFloat(fundAmount),
-        method: paymentMethod,
-        userEmail: currentUser.email,
-        userId: currentUser.userId,
-        status: 'pending',
-        date: new Date().toLocaleString(),
-        applied: false
-      };
+    console.log("Submitting transaction to Firebase:", { fundTransactionId, fundAmount, paymentMethod });
+    
+    // 1. Submit Transaction to Firebase (Background)
+    const newTx = {
+      transactionId: fundTransactionId,
+      amount: parseFloat(fundAmount),
+      method: paymentMethod,
+      userEmail: currentUser.email,
+      userId: currentUser.uuid,
+      status: 'pending',
+      date: new Date().toLocaleString(),
+      applied: false
+    };
 
-      const docRef = await addDoc(collection(db, "transactions"), newTx);
+    // Fire and forget - don't await
+    addDoc(collection(db, "transactions"), newTx)
+      .then((docRef) => {
+        console.log("Transaction submitted successfully! Doc ID:", docRef.id);
+      })
+      .catch((error) => {
+        console.error("Funding Error (Background):", error);
+      });
       
-      // 2. Local state update (optional as onSnapshot will handle it)
-      const newPayment: PaymentRecord = {
-        id: docRef.id,
-        method: paymentMethod,
-        amount: parseFloat(fundAmount),
-        transactionId: fundTransactionId,
-        status: 'pending',
-        createdAt: new Date().toLocaleString()
-      };
-      setPaymentHistory(prev => [newPayment, ...prev]);
-      
-      alert("OK");
-      setFundAmount('');
-      setFundTransactionId('');
-      setFundStep('amount');
-      setFundError(null);
-    } catch (error: any) {
-      console.error("Funding Error:", error);
-      setFundError("Failed to submit transaction: " + error.message);
-    } finally {
-      setIsFunding(false);
-    }
+    // 2. Immediate Feedback
+    alert("আপনার রিকোয়েস্টটি পেন্ডিং এ আছে। ওকে।");
+    setFundAmount('');
+    setFundTransactionId('');
+    setFundStep('amount');
+    setFundError(null);
+    setIsFunding(false);
   };
 
   const refreshOrderStatus = async (id: string) => {
@@ -678,7 +727,20 @@ export default function App() {
             onSubmitOrder={(e) => {
               e.preventDefault();
               if (!isLoggedIn) { setShowAuthModal(true); return; }
-              if (!link || !quantity || !selectedService || parseInt(quantity) < selectedService.min) return;
+              if (!link) { alert("দয়া করে লিংক দিন"); return; }
+              if (!quantity) { alert("দয়া করে পরিমাণ দিন"); return; }
+              if (!selectedService) { alert("দয়া করে একটি সার্ভিস সিলেক্ট করুন"); return; }
+              
+              const qty = parseInt(quantity);
+              if (qty < selectedService.min) {
+                alert(`সর্বনিম্ন পরিমাণ ${selectedService.min}`);
+                return;
+              }
+              if (qty > selectedService.max) {
+                alert(`সর্বোচ্চ পরিমাণ ${selectedService.max}`);
+                return;
+              }
+              
               setStep('payment');
             }}
             onVerify={handleVerify}
@@ -738,6 +800,7 @@ export default function App() {
             balance={balance} 
             orders={orders} 
             onLogout={handleLogout} 
+            onAdminClick={() => setShowAdminPanel(true)}
           />
         )}
       </main>
