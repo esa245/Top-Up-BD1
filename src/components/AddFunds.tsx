@@ -18,6 +18,7 @@ interface AddFundsProps {
   onFundTransactionIdChange: (val: string) => void;
   onAddFunds: () => void;
   onCopy: (text: string | number) => void;
+  onDemoFill?: () => void;
 }
 
 export const AddFunds: React.FC<AddFundsProps> = ({
@@ -33,7 +34,8 @@ export const AddFunds: React.FC<AddFundsProps> = ({
   onFundAmountChange,
   onFundTransactionIdChange,
   onAddFunds,
-  onCopy
+  onCopy,
+  onDemoFill
 }) => {
   return (
     <motion.div
@@ -41,7 +43,17 @@ export const AddFunds: React.FC<AddFundsProps> = ({
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <h2 className="text-xl font-bold text-slate-900">Add Funds</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold text-slate-900">Add Funds</h2>
+        {onDemoFill && (
+          <button 
+            onClick={onDemoFill}
+            className="text-[10px] font-bold bg-indigo-600 text-white px-3 py-1 rounded-full shadow-sm hover:bg-indigo-700 transition-colors"
+          >
+            Demo Fill
+          </button>
+        )}
+      </div>
       
       <div className="grid grid-cols-2 gap-4">
         <button 

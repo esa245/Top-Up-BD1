@@ -1,6 +1,6 @@
 async function test() {
   const body = new URLSearchParams();
-  body.append("key", "418d90ab70f631b605e282072620ae6f");
+  body.append("key", "2c67ea4f797ab16122ab7344c5a0f5dd");
   body.append("action", "services");
 
   const response = await fetch("https://motherpanel.com/api/v2", {

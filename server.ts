@@ -143,6 +143,7 @@ async function startServer() {
 
   // Proxy for Top Up BD API
   app.post("/api/proxy", async (req, res) => {
+    console.log("Proxy request received:", req.body);
     try {
       const { action, ...params } = req.body;
       
@@ -154,6 +155,7 @@ async function startServer() {
         body.append(key, String(value));
       });
 
+      console.log(`Fetching from MotherPanel: ${MOTHER_PANEL_CONFIG.API_URL} with action: ${action}`);
       const response = await fetch(MOTHER_PANEL_CONFIG.API_URL, {
         method: "POST",
         headers: {
@@ -163,12 +165,13 @@ async function startServer() {
       });
 
       const text = await response.text();
+      console.log("MotherPanel response received, length:", text.length);
       try {
         const data = JSON.parse(text);
         res.json(data);
       } catch (e) {
-        console.error("Failed to parse MotherPanel response:", text);
-        res.status(500).json({ error: "Invalid response from provider API" });
+        console.error("Failed to parse MotherPanel response:", text.substring(0, 500));
+        res.status(500).json({ error: "Invalid response from provider API", details: text.substring(0, 100) });
       }
     } catch (error) {
       console.error("API Proxy Error:", error);

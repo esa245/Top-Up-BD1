@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { createClient } from '@supabase/supabase-js';
+import { db } from './firebase';
+import { collection, query, where, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
 
 // Types & Constants
 import { Category, Service, Order, PaymentRecord, UserData, ApiService } from './types';
@@ -68,63 +70,68 @@ export default function App() {
   const [servicesError, setServicesError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
-  // Fetch user transactions and apply balance
+  // Fetch user transactions and apply balance (Firebase Real-time)
   useEffect(() => {
     if (!isLoggedIn || !currentUser || !currentUser.uuid) return;
 
-    const checkTransactions = async () => {
-      try {
-        const res = await fetch(`/api/transactions/user/${currentUser.email}`);
-        const data = await res.json();
-        
-        if (data.success && data.transactions) {
-          // Update local payment history
-          const updatedHistory = data.transactions.map((t: any) => ({
-            id: t.id,
-            method: t.method,
-            amount: t.amount,
-            transactionId: t.transactionId,
-            status: t.status,
-            createdAt: t.date
-          }));
-          setPaymentHistory(updatedHistory);
+    const q = query(
+      collection(db, "transactions"), 
+      where("userEmail", "==", currentUser.email)
+    );
 
-          // Find completed but unapplied transactions
-          const unapplied = data.transactions.filter((t: any) => t.status === 'completed' && !t.applied);
-          
-          let currentBal = currentUser.balance;
-          let balanceChanged = false;
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const transactions: any[] = [];
+      snapshot.forEach((doc) => {
+        transactions.push({ id: doc.id, ...doc.data() });
+      });
 
-          for (const tx of unapplied) {
-            // 1. Update balance in Supabase
-            currentBal += tx.amount;
-            const { error: balanceError } = await supabase
-              .from('profiles')
-              .update({ balance: currentBal })
-              .eq('id', currentUser.uuid);
+      // Update local payment history
+      const updatedHistory = transactions.map((t: any) => ({
+        id: t.id,
+        method: t.method,
+        amount: t.amount,
+        transactionId: t.transactionId,
+        status: t.status,
+        createdAt: t.date
+      }));
+      setPaymentHistory(updatedHistory);
 
-            if (!balanceError) {
-              // 2. Mark as applied on server
-              await fetch(`/api/transactions/${tx.id}/apply`, { method: 'POST' });
+      // Find completed but unapplied transactions
+      const unapplied = transactions.filter((t: any) => t.status === 'completed' && !t.applied);
+      
+      if (unapplied.length > 0) {
+        let currentBal = currentUser.balance;
+        let balanceChanged = false;
+
+        for (const tx of unapplied) {
+          // 1. Update balance in Supabase
+          currentBal += tx.amount;
+          const { error: balanceError } = await supabase
+            .from('profiles')
+            .update({ balance: currentBal })
+            .eq('id', currentUser.uuid);
+
+          if (!balanceError) {
+            // 2. Mark as applied in Firebase
+            try {
+              await updateDoc(doc(db, "transactions", tx.id), { applied: true });
               balanceChanged = true;
+            } catch (err) {
+              console.error("Error marking as applied in Firebase:", err);
             }
           }
-
-          if (balanceChanged) {
-            // 3. Update local state once after all applications
-            setCurrentUser(prev => prev ? { ...prev, balance: currentBal } : null);
-            setBalance(currentBal.toString());
-            alert(`Admin approved your transaction(s)! Your balance has been updated to ৳${currentBal}.`);
-          }
         }
-      } catch (err) {
-        console.error("Failed to check transactions", err);
-      }
-    };
 
-    checkTransactions();
-    const interval = setInterval(checkTransactions, 5000);
-    return () => clearInterval(interval);
+        if (balanceChanged) {
+          // 3. Update local state
+          setCurrentUser(prev => prev ? { ...prev, balance: currentBal } : null);
+          setBalance(currentBal.toString());
+          alert(`Admin approved your transaction(s)! Your balance has been updated to ৳${currentBal}.`);
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, [isLoggedIn, currentUser]);
 
   // Combined Loading State - Only block UI for initial auth check
@@ -241,8 +248,11 @@ export default function App() {
           processServices(fallbackServices);
         }
       } catch (e: any) {
-        console.error("Failed to fetch real services:", e);
-        setServicesError(e.message || "Failed to connect to provider.");
+        console.error("Service Fetch Error:", e);
+        const errorMessage = e.message === 'Failed to fetch' 
+          ? "Network Error: Could not connect to the server. Please check your internet or server status."
+          : `Error: ${e.message || "Failed to connect to provider."}`;
+        setServicesError(errorMessage);
         processServices(fallbackServices);
       } finally {
         setIsServicesLoading(false);
@@ -268,6 +278,11 @@ export default function App() {
 
   // Auth Effects
   useEffect(() => {
+    const handleSwitchTab = (e: any) => {
+      handleTabChange(e.detail);
+    };
+    window.addEventListener('switchTab', handleSwitchTab);
+    
     // Global fail-safe: Force loading screen to disappear almost instantly (0.8s)
     const globalTimeout = setTimeout(() => {
       setIsInitialAuthLoading(false);
@@ -361,6 +376,7 @@ export default function App() {
     return () => {
       clearTimeout(globalTimeout);
       subscription.unsubscribe();
+      window.removeEventListener('switchTab', handleSwitchTab);
     };
   }, []);
 
@@ -419,40 +435,11 @@ export default function App() {
   const handleVerify = async () => {
     if (!selectedService || !currentUser) return;
     
-    // If they are in payment step but don't have enough balance, 
-    // we assume they are providing a transaction ID for manual verification (or we just process it for now)
-    // But for "Real Orders", we should ideally use the balance.
-    
     setIsVerifying(true);
     try {
       // 1. Check if user has enough balance
       if (currentUser.balance < charge) {
-        // If not enough balance, we submit a transaction request for manual verification
-        const submitRes = await fetch('/api/transactions/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            transactionId: transactionId, 
-            amount: charge, 
-            method: 'bkash', // Default to bkash for order-flow payments or we could add a selector
-            userEmail: currentUser.email,
-            userId: currentUser.userId
-          })
-        });
-        
-        const submitData = await submitRes.json();
-        
-        if (submitData.success) {
-          alert("OK");
-          setStep('form');
-          setLink('');
-          setQuantity('');
-          setTransactionId('');
-          setActiveTab('add-funds'); // Redirect to funds to see status
-        } else {
-          alert("Failed to submit payment request: " + (submitData.message || "Unknown error"));
-        }
-        
+        alert("আপনার ব্যালেন্স পর্যাপ্ত নয়। দয়া করে ফান্ড অ্যাড করুন।");
         setIsVerifying(false);
         return;
       }
@@ -538,41 +525,36 @@ export default function App() {
     
     setIsFunding(true);
     try {
-      // 1. Submit Transaction to Server
-      const submitRes = await fetch('/api/transactions/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          transactionId: fundTransactionId, 
-          amount: fundAmount, 
-          method: paymentMethod,
-          userEmail: currentUser.email,
-          userId: currentUser.userId
-        })
-      });
+      // 1. Submit Transaction to Firebase
+      const newTx = {
+        transactionId: fundTransactionId,
+        amount: parseFloat(fundAmount),
+        method: paymentMethod,
+        userEmail: currentUser.email,
+        userId: currentUser.userId,
+        status: 'pending',
+        date: new Date().toLocaleString(),
+        applied: false
+      };
+
+      const docRef = await addDoc(collection(db, "transactions"), newTx);
       
-      const submitData = await submitRes.json();
+      // 2. Local state update (optional as onSnapshot will handle it)
+      const newPayment: PaymentRecord = {
+        id: docRef.id,
+        method: paymentMethod,
+        amount: parseFloat(fundAmount),
+        transactionId: fundTransactionId,
+        status: 'pending',
+        createdAt: new Date().toLocaleString()
+      };
+      setPaymentHistory(prev => [newPayment, ...prev]);
       
-      if (submitData.success) {
-        // Add to local payment history as pending
-        const newPayment: PaymentRecord = {
-          id: submitData.transaction.id,
-          method: paymentMethod,
-          amount: parseFloat(fundAmount),
-          transactionId: fundTransactionId,
-          status: 'pending',
-          createdAt: new Date().toLocaleString()
-        };
-        setPaymentHistory(prev => [newPayment, ...prev]);
-        
-        alert("OK");
-        setFundAmount('');
-        setFundTransactionId('');
-        setFundStep('amount');
-        setFundError(null);
-      } else {
-        setFundError(submitData.message || "Failed to submit transaction");
-      }
+      alert("OK");
+      setFundAmount('');
+      setFundTransactionId('');
+      setFundStep('amount');
+      setFundError(null);
     } catch (error: any) {
       console.error("Funding Error:", error);
       setFundError("Failed to submit transaction: " + error.message);

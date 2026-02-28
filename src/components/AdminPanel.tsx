@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Users, CreditCard, ArrowLeft, LogOut, CheckCircle, XCircle } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, onSnapshot, updateDoc, doc, query, orderBy } from 'firebase/firestore';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -25,40 +27,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchTransactions = async () => {
-    try {
-      const res = await fetch('/api/transactions/all');
-      const data = await res.json();
-      if (data.success) {
-        setTransactions(data.transactions);
-      }
-    } catch (err) {
-      console.error("Failed to fetch transactions", err);
-    }
-  };
-
   useEffect(() => {
     if (isAdminLoggedIn) {
-      fetchTransactions();
-      const interval = setInterval(fetchTransactions, 5000); // Auto refresh
-      return () => clearInterval(interval);
+      const q = query(collection(db, "transactions"), orderBy("date", "desc"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const txs: any[] = [];
+        snapshot.forEach((doc) => {
+          txs.push({ id: doc.id, ...doc.data() });
+        });
+        setTransactions(txs);
+      });
+      return () => unsubscribe();
     }
   }, [isAdminLoggedIn]);
 
   const handleStatusUpdate = async (id: string, status: 'completed' | 'rejected') => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/transactions/${id}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setTransactions(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-      }
+      await updateDoc(doc(db, "transactions", id), { status });
+      // Local state will be updated by onSnapshot
     } catch (err) {
       console.error("Failed to update status", err);
+      alert("Failed to update status: " + (err as any).message);
     } finally {
       setIsLoading(false);
     }

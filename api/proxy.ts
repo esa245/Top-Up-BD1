@@ -27,6 +27,8 @@ export default async function handler(req: any, res: any) {
     const API_KEY = process.env.MOTHER_PANEL_API_KEY || "2c67ea4f797ab16122ab7344c5a0f5dd";
     const API_URL = "https://motherpanel.com/api/v2";
 
+    console.log(`Proxying action: ${action} to ${API_URL}`);
+
     const formBody = new URLSearchParams();
     formBody.append("key", API_KEY);
     formBody.append("action", action);
