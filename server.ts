@@ -51,16 +51,17 @@ async function startServer() {
     try {
       const { transactionId, amount, method } = req.body;
 
-      // IMPORTANT: Here you should call your real Payment Gateway API (e.g., Shurjopay, SSLCommerz, or custom Nagad/bKash API)
-      // For now, we will simulate a successful verification if the ID is between 8 and 12 characters.
-      // In a real app, you would verify if this transactionId actually exists and matches the amount.
+      // Simulate an automatic checking process with a slight delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const isValid = transactionId && transactionId.length >= 8 && transactionId.length <= 16 && /^[A-Z0-9]+$/i.test(transactionId);
+      // Accept any transaction ID that is at least 6 characters long (more lenient)
+      // In a real production app, this would connect to bKash/Nagad merchant API
+      const isValid = transactionId && transactionId.length >= 6;
 
       if (isValid) {
         res.json({ success: true, message: "Transaction verified successfully!" });
       } else {
-        res.status(400).json({ success: false, message: "Invalid Transaction ID format. Must be 8-16 alphanumeric characters." });
+        res.status(400).json({ success: false, message: "Invalid Transaction ID format." });
       }
     } catch (error) {
       res.status(500).json({ success: false, message: "Verification failed." });

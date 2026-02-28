@@ -59,6 +59,7 @@ export default function App() {
   const [fundTransactionId, setFundTransactionId] = useState('');
   const [isFunding, setIsFunding] = useState(false);
   const [fundStep, setFundStep] = useState<'amount' | 'verify'>('amount');
+  const [fundError, setFundError] = useState<string | null>(null);
   const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -439,7 +440,21 @@ export default function App() {
   };
 
   const handleAddFunds = async () => {
-    if (!fundAmount || !fundTransactionId || !currentUser) return;
+    setFundError(null);
+    if (!fundAmount) {
+      setFundError("আপনার টাকা কম ২০ টাকার নিচে হবে না");
+      return;
+    }
+    if (parseFloat(fundAmount) < 20) {
+      setFundError("আপনার টাকা কম ২০ টাকার নিচে হবে না");
+      return;
+    }
+    if (!fundTransactionId) {
+      setFundError("সঠিক ট্রানজেকশন আইডি দিন");
+      return;
+    }
+    if (!currentUser) return;
+    
     setIsFunding(true);
     try {
       // 1. Verify Transaction via Server
@@ -485,12 +500,13 @@ export default function App() {
         setFundAmount('');
         setFundTransactionId('');
         setFundStep('amount');
+        setFundError(null);
       } else {
-        alert("Verification Failed: " + (verifyData.message || "Invalid Transaction ID"));
+        setFundError("সঠিক ট্রানজেকশন আইডি দিন");
       }
     } catch (error: any) {
       console.error("Funding Error:", error);
-      alert("Failed to add funds: " + error.message);
+      setFundError("Failed to add funds: " + error.message);
     } finally {
       setIsFunding(false);
     }
@@ -639,10 +655,20 @@ export default function App() {
             fundTransactionId={fundTransactionId}
             isFunding={isFunding}
             paymentHistory={paymentHistory}
+            fundError={fundError}
             onSetPaymentMethod={setPaymentMethod}
-            onSetFundStep={setFundStep}
-            onFundAmountChange={setFundAmount}
-            onFundTransactionIdChange={setFundTransactionId}
+            onSetFundStep={(step) => {
+              setFundError(null);
+              setFundStep(step);
+            }}
+            onFundAmountChange={(val) => {
+              setFundError(null);
+              setFundAmount(val);
+            }}
+            onFundTransactionIdChange={(val) => {
+              setFundError(null);
+              setFundTransactionId(val);
+            }}
             onAddFunds={handleAddFunds}
             onCopy={(text) => navigator.clipboard.writeText(text.toString())}
           />

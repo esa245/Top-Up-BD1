@@ -11,6 +11,7 @@ interface AddFundsProps {
   fundTransactionId: string;
   isFunding: boolean;
   paymentHistory: PaymentRecord[];
+  fundError: string | null;
   onSetPaymentMethod: (method: 'nagad' | 'bkash') => void;
   onSetFundStep: (step: 'amount' | 'verify') => void;
   onFundAmountChange: (val: string) => void;
@@ -26,6 +27,7 @@ export const AddFunds: React.FC<AddFundsProps> = ({
   fundTransactionId,
   isFunding,
   paymentHistory,
+  fundError,
   onSetPaymentMethod,
   onSetFundStep,
   onFundAmountChange,
@@ -78,14 +80,17 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                 placeholder="Min: 20 BDT"
                 value={fundAmount}
                 onChange={(e) => onFundAmountChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-lg"
+                className={`w-full bg-slate-50 border ${fundError && fundStep === 'amount' ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-2xl p-4 focus:outline-none focus:ring-2 transition-all font-bold text-lg`}
               />
+              {fundError && fundStep === 'amount' && (
+                <p className="text-sm text-rose-500 font-medium mt-1">{fundError}</p>
+              )}
               <p className="text-[10px] text-slate-400 font-medium">Note: ৳7 surcharge will be added to your payment.</p>
             </div>
             <button 
               onClick={() => {
                 if (parseFloat(fundAmount) >= 20) onSetFundStep('verify');
-                else alert("Minimum amount is 20 BDT");
+                else onAddFunds(); // This will trigger the error in App.tsx
               }}
               disabled={!fundAmount}
               className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all disabled:opacity-50 ${paymentMethod === 'nagad' ? 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700' : 'bg-pink-600 text-white shadow-pink-200 hover:bg-pink-700'}`}
@@ -140,15 +145,18 @@ export const AddFunds: React.FC<AddFundsProps> = ({
                   placeholder="8N7X6W5V4U"
                   value={fundTransactionId}
                   onChange={(e) => onFundTransactionIdChange(e.target.value.toUpperCase())}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono font-bold"
+                  className={`w-full bg-slate-50 border ${fundError && fundStep === 'verify' ? 'border-rose-500 focus:ring-rose-500/20 focus:border-rose-500' : 'border-slate-200 focus:ring-indigo-500/20 focus:border-indigo-500'} rounded-2xl p-4 focus:outline-none focus:ring-2 transition-all font-mono font-bold`}
                 />
+                {fundError && fundStep === 'verify' && (
+                  <p className="text-sm text-rose-500 font-medium mt-1">{fundError}</p>
+                )}
               </div>
               <button 
                 onClick={onAddFunds}
                 disabled={!fundTransactionId || isFunding}
                 className={`w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 ${paymentMethod === 'nagad' ? 'bg-orange-600 text-white shadow-orange-200 hover:bg-orange-700' : 'bg-pink-600 text-white shadow-pink-200 hover:bg-pink-700'}`}
               >
-                {isFunding ? 'Processing...' : 'Verify Payment'}
+                {isFunding ? 'Checking Transaction...' : 'Verify Payment'}
               </button>
             </div>
           </div>
