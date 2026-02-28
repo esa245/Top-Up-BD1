@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { CreditCard, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { CreditCard, Settings, LogOut, ChevronDown, User } from 'lucide-react';
 import { UserData, Order } from '../types';
 
 interface AccountProps {
@@ -20,15 +20,16 @@ export const Account: React.FC<AccountProps> = ({ currentUser, balance, orders, 
       <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
         <div className="flex flex-col items-center text-center space-y-4">
           <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-slate-100 border-4 border-white shadow-lg overflow-hidden">
-              <img src="https://picsum.photos/seed/user/200/200" alt="User" referrerPolicy="no-referrer" />
+            <div className="w-24 h-24 rounded-full bg-indigo-50 border-4 border-white shadow-lg flex items-center justify-center text-indigo-400">
+              <User className="w-12 h-12" />
             </div>
             <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-2 border-white rounded-full" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900">{currentUser?.name || currentUser?.email}</h3>
-            <p className="text-slate-400 text-sm font-mono font-bold">ID: {currentUser?.userId}</p>
-            <p className="text-slate-400 text-[10px]">Member since Feb 2026</p>
+            <h3 className="text-xl font-bold text-slate-900">{currentUser?.name || 'User'}</h3>
+            <p className="text-slate-500 text-sm">{currentUser?.email}</p>
+            <p className="text-slate-400 text-sm font-mono font-bold mt-1">ID: {currentUser?.userId}</p>
+            <p className="text-slate-400 text-[10px] mt-1">Member since Feb 2026</p>
           </div>
         </div>
 

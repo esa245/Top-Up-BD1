@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, User } from 'lucide-react';
 import { UserData } from '../types';
 
 interface HeaderProps {
@@ -38,9 +38,9 @@ export const Header: React.FC<HeaderProps> = ({ isLoggedIn, balance, userName, o
               </div>
               <div 
                 onClick={() => onTabChange('account')}
-                className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center cursor-pointer hover:bg-indigo-700 transition-colors overflow-hidden font-bold text-lg shadow-sm"
+                className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center cursor-pointer hover:bg-indigo-100 transition-colors overflow-hidden shadow-sm"
               >
-                {firstLetter}
+                <User className="w-5 h-5" />
               </div>
             </>
           )}
