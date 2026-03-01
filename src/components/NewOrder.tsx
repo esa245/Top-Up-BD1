@@ -295,8 +295,8 @@ export const NewOrder: React.FC<NewOrderProps> = ({
                   <Info className="w-10 h-10 text-rose-500" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Insufficient Balance</h2>
-                  <p className="text-slate-500 mt-2">অর্ডারটি সম্পন্ন করার জন্য আপনার একাউন্টে পর্যাপ্ত ব্যালেন্স নেই।</p>
+                  <h2 className="text-2xl font-bold text-slate-900">আপনার একাউন্টে টাকা নাই</h2>
+                  <p className="text-slate-500 mt-2">অর্ডারটি সম্পন্ন করার জন্য আপনার একাউন্টে টাকা নাই। দয়া করে ফান্ড অ্যাড করুন।</p>
                 </div>
                 
                 <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6 space-y-2">

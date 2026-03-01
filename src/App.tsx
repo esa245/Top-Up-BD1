@@ -498,7 +498,7 @@ export default function App() {
     try {
       // 1. Check if user has enough balance
       if (currentUser.balance < charge) {
-        alert("আপনার ব্যালেন্স পর্যাপ্ত নয়। দয়া করে ফান্ড অ্যাড করুন।");
+        alert("আপনার একাউন্টে টাকা নাই। দয়া করে ফান্ড অ্যাড করুন।");
         setIsVerifying(false);
         return;
       }
@@ -754,6 +754,11 @@ export default function App() {
               }
               if (qty > selectedService.max) {
                 alert(`সর্বোচ্চ পরিমাণ ${selectedService.max}`);
+                return;
+              }
+              
+              if (currentUser && currentUser.balance < charge) {
+                alert("আপনার একাউন্টে টাকা নাই। দয়া করে ফান্ড অ্যাড করুন।");
                 return;
               }
               
