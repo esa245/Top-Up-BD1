@@ -69,7 +69,7 @@ export default function App() {
   const [transactionId, setTransactionId] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isServicesLoading, setIsServicesLoading] = useState(true);
+  const [isServicesLoading, setIsServicesLoading] = useState(false);
   const [isInitialAuthLoading, setIsInitialAuthLoading] = useState(true);
   const [balance, setBalance] = useState<string>('0.00');
   const [paymentMethod, setPaymentMethod] = useState<'nagad' | 'bkash'>('nagad');
@@ -236,9 +236,13 @@ export default function App() {
       }
     };
 
-    // Try to fetch real services
+    // Set fallback services initially so UI loads instantly
+    processServices(fallbackServices);
+
+    // Try to fetch real services in background
     const fetchRealServices = async () => {
-      setIsServicesLoading(true);
+      // We don't block the UI with a loading spinner anymore
+      // setIsServicesLoading(true);
       try {
         const response = await fetch('/api/proxy', {
           method: 'POST',
@@ -256,8 +260,6 @@ export default function App() {
         if (data.error) {
           console.error("MotherPanel API Error:", data.error);
           setServicesError(`API Error: ${data.error}`);
-          // Fallback if real fails
-          processServices(fallbackServices);
           return;
         }
 
@@ -277,7 +279,6 @@ export default function App() {
           console.log(`Loaded ${servicesArray.length} real services from MotherPanel`);
         } else {
           setServicesError("No services found from provider.");
-          processServices(fallbackServices);
         }
       } catch (e: any) {
         console.error("Service Fetch Error:", e);
@@ -285,7 +286,6 @@ export default function App() {
           ? "Network Error: Could not connect to the server. Please check your internet or server status."
           : `Error: ${e.message || "Failed to connect to provider."}`;
         setServicesError(errorMessage);
-        processServices(fallbackServices);
       } finally {
         setIsServicesLoading(false);
       }
@@ -536,7 +536,7 @@ export default function App() {
           quantity: parseInt(quantity),
           charge,
           transactionId: transactionId || 'BALANCE',
-          status: 'pending',
+          status: 'completed',
           createdAt: new Date().toLocaleString()
         };
 
@@ -555,7 +555,7 @@ export default function App() {
         setCurrentUser({ ...currentUser, balance: newBalance });
         setBalance(newBalance.toString());
         setOrders(prev => [newOrder, ...prev]);
-      alert(`অর্ডার সফলভাবে সম্পন্ন হয়েছে! অর্ডার আইডি: ${orderData.order}`);
+      alert(`OK! অর্ডার সফলভাবে সম্পন্ন হয়েছে। অর্ডার আইডি: ${orderData.order}`);
       setStep('form');
       setLink('');
       setQuantity('');
@@ -757,7 +757,7 @@ export default function App() {
                 return;
               }
               
-              setStep('payment');
+              handleVerify();
             }}
             onVerify={handleVerify}
             onSetStep={setStep}

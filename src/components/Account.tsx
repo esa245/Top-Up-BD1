@@ -66,8 +66,10 @@ export const Account: React.FC<AccountProps> = ({ currentUser, balance, orders, 
     if (navigator.share) {
       try {
         await navigator.share(shareData);
-      } catch (err) {
-        console.error('Error sharing:', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError' && !err.message?.includes('canceled')) {
+          console.error('Error sharing:', err);
+        }
       }
     } else {
       navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);

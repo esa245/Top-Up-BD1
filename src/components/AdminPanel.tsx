@@ -49,7 +49,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transactions' | 'orders' | 'users'>('transactions');
+  const [activeTab, setActiveTab] = useState<'pending' | 'transactions' | 'orders' | 'users'>('pending');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -295,10 +295,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             <div className="flex items-center gap-6">
               <div className="hidden sm:flex items-center gap-4">
                 <button 
+                  onClick={() => setActiveTab('pending')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md ${activeTab === 'pending' ? 'bg-amber-100 text-amber-700' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Pending ({transactions.filter(t => t.status === 'pending').length})
+                </button>
+                <button 
                   onClick={() => setActiveTab('transactions')}
                   className={`px-3 py-2 text-sm font-medium rounded-md ${activeTab === 'transactions' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  Transactions
+                  All Transactions
                 </button>
                 <button 
                   onClick={() => setActiveTab('orders')}
@@ -329,10 +335,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         {/* Mobile Tabs */}
         <div className="sm:hidden px-4 flex gap-2 overflow-x-auto pb-2">
           <button 
+            onClick={() => setActiveTab('pending')}
+            className={`px-4 py-2 whitespace-nowrap text-sm font-medium rounded-full ${activeTab === 'pending' ? 'bg-amber-500 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}
+          >
+            Pending ({transactions.filter(t => t.status === 'pending').length})
+          </button>
+          <button 
             onClick={() => setActiveTab('transactions')}
             className={`px-4 py-2 whitespace-nowrap text-sm font-medium rounded-full ${activeTab === 'transactions' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}
           >
-            Transactions
+            All Transactions
           </button>
           <button 
             onClick={() => setActiveTab('orders')}
@@ -374,6 +386,97 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
         </div>
 
         {/* Content based on active tab */}
+        {activeTab === 'pending' && (
+          <div className="bg-white shadow rounded-lg">
+            <div className="px-4 py-5 border-b border-slate-200 sm:px-6">
+              <h3 className="text-lg leading-6 font-medium text-slate-900">Pending Payments</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Sender Number</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">User (Email & ID)</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-slate-200">
+                  {filteredTransactions.filter(tx => tx.status === 'pending').length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-slate-500">No pending payments found</td>
+                    </tr>
+                  ) : (
+                    filteredTransactions.filter(tx => tx.status === 'pending').map((tx) => {
+                      const user = users.find(u => u.id === tx.userId);
+                      const userName = user ? user.full_name : 'Unknown';
+                      const displayId = user?.customId || tx.userId;
+                      
+                      return (
+                        <tr key={tx.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-900 flex items-center gap-2">
+                            {tx.transactionId}
+                            <button 
+                              onClick={() => navigator.clipboard.writeText(tx.transactionId)}
+                              className="text-slate-400 hover:text-indigo-600 transition-colors"
+                              title="Copy TrxID"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            <div className="font-bold text-slate-900">{userName}</div>
+                            <div className="font-medium text-slate-700">{tx.userEmail}</div>
+                            <div className="text-xs text-slate-400 font-mono flex items-center gap-1">
+                              {displayId}
+                              <button 
+                                onClick={() => navigator.clipboard.writeText(displayId)}
+                                className="text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="Copy UserID"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600">৳{tx.amount}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                              Pending
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{new Date(tx.date).toLocaleString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => handleStatusUpdate(tx.id, 'completed')}
+                                disabled={isLoading}
+                                className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                title="Accept"
+                              >
+                                <CheckCircle className="w-5 h-5" />
+                              </button>
+                              <button 
+                                onClick={() => handleStatusUpdate(tx.id, 'rejected')}
+                                disabled={isLoading}
+                                className="text-rose-600 hover:text-rose-900 bg-rose-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                                title="Reject"
+                              >
+                                <XCircle className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'transactions' && (
           <div className="bg-white shadow rounded-lg">
             <div className="px-4 py-5 border-b border-slate-200 sm:px-6">

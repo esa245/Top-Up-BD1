@@ -219,9 +219,17 @@ export const NewOrder: React.FC<NewOrderProps> = ({
 
             <button 
               type="submit"
-              className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              disabled={isVerifying}
+              className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
             >
-              Submit Order
+              {isVerifying ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Submit Order'
+              )}
             </button>
           </form>
         </motion.div>
